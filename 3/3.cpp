@@ -7,7 +7,8 @@
 
 using namespace std;
 
-const unsigned int N = 8;
+const int N = 8;
+const int num_of_threads = 8;
 
 void rand_init(float** Matr, float* vect, float* result_vect) {
     srand(time(NULL));
@@ -49,6 +50,7 @@ double serial_calculate(float** Matr, float* vect, float* result_vect) {
 double parallel_raw_calculate(float** Matr, float* vect, float* result_vect) {
     int i, j;
     float sum = 0;
+    omp_set_num_threads(num_of_threads);
     double time = omp_get_wtime();
     for (i = 0; i < N; ++i) {
         sum = 0;
@@ -61,16 +63,15 @@ double parallel_raw_calculate(float** Matr, float* vect, float* result_vect) {
 }
 
 double parallel_column_calculate(float** Matr, float* vect, float* result_vect) {
-    int thread_num;
+    omp_set_num_threads(num_of_threads);
     auto** partial_sums = new float*[N];
     for(int i = 0 ; i < N ; ++i)
         partial_sums[i] = new float[N];
     double time = omp_get_wtime();
-    #pragma omp parallel shared (thread_num)
+    #pragma omp parallel
     {
-        thread_num = omp_get_num_threads();
         int thread_id = omp_get_thread_num();
-        int block_size = N / thread_num;
+        int block_size = N / num_of_threads;
         float IterResult;
         for (int i = 0; i < N; ++i) {
             IterResult = 0;
@@ -82,14 +83,13 @@ double parallel_column_calculate(float** Matr, float* vect, float* result_vect) 
         }
     }
     for (int i = 0; i < N; ++i)
-        for (int j = 0; j < thread_num; ++j)
+        for (int j = 0; j < num_of_threads; ++j)
             result_vect[i] += partial_sums[j][i];
     return omp_get_wtime() - time;
 }
 
 double parallel_block_calculation(float** Matr, float* vect, float* result_vect) {
-    int threads_num = 2;
-    omp_set_num_threads(threads_num);
+    omp_set_num_threads(num_of_threads);
     omp_set_nested(true);
     double time = omp_get_wtime();
     #pragma omp parallel for
