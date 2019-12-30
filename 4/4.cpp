@@ -8,8 +8,8 @@
 
 using namespace std;
 
-const int N = 1000;
-const int num_of_threads = 4;
+const int N = 100;
+int num_of_threads = 4;
 
 float** matrix_rand_init(int random) {
     auto ** new_matrix = new float*[N];
@@ -66,7 +66,7 @@ double parallel_raw_calculate(float** A, float** B, float** result) {
     float sum = 0;
     omp_set_num_threads(num_of_threads);
     double time = omp_get_wtime();
-    #pragma omp paralell for private (j, k)
+#pragma omp paralell for private (j, k)
     for (i = 0; i < N; ++i) {
         for (j = 0; j < N; ++j) {
             for (k = 0; k < N; ++k) {
@@ -82,9 +82,9 @@ double parallel_tape_sharing_calculate(float** A, float** B, float** result) {
     omp_set_nested(true);
     omp_set_num_threads(num_of_threads);
     double time = omp_get_wtime();
-    #pragma omp parallel for private (j, k)
+#pragma omp parallel for private (j, k)
     for (i = 0; i < N; ++i) {
-    #pragma omp parallel for private (k)
+#pragma omp parallel for private (k)
         for (j = 0; j < N; ++j) {
             for (k = 0; k < N; ++k) {
                 result[i][j] += A[i][k] * B[k][j];
@@ -99,7 +99,7 @@ double parallel_block_calculate(float** A, float** B, float** result) {
     int block_size = N / grid_size;
     omp_set_num_threads(num_of_threads);
     double time = omp_get_wtime();
-    #pragma omp parallel
+#pragma omp parallel
     {
         int thread_id = omp_get_thread_num();
         int row = int(thread_id / grid_size);
@@ -119,28 +119,33 @@ double parallel_block_calculate(float** A, float** B, float** result) {
 
 
 int main() {
-    float** A = matrix_rand_init(1);
-    cout << "Matrix A:" << endl;
+    for (int i = 2; i <= 5; ++i) {
+        num_of_threads = i * i;
+        cout << "Number of thread: " << num_of_threads << endl;
+        float **A = matrix_rand_init(1);
+//    cout << "Matrix A:" << endl;
 //    print_matrix(A);
-    float** B = matrix_rand_init(2);
-    cout << "Matrix B:" << endl;
+        float **B = matrix_rand_init(2);
+//    cout << "Matrix B:" << endl;
 //    print_matrix(B);
-    float** serial_C = matrix_zero_init();
-    float** parallel_raw_C = matrix_zero_init();
-    float** parallel_tape_C = matrix_zero_init();
-    float** parallel_block_C = matrix_zero_init();
+        float **serial_C = matrix_zero_init();
+        float **parallel_raw_C = matrix_zero_init();
+        float **parallel_tape_C = matrix_zero_init();
+        float **parallel_block_C = matrix_zero_init();
 
-    double serial_time = serial_calculate(A, B, serial_C);
-    double parallel_raw_time = parallel_raw_calculate(A, B, parallel_raw_C);
-    double parallel_tape_time = parallel_tape_sharing_calculate(A, B, parallel_tape_C);
-    double parallel_block_time = parallel_block_calculate(A, B, parallel_block_C);
+        double serial_time = serial_calculate(A, B, serial_C);
+        double parallel_raw_time = parallel_raw_calculate(A, B, parallel_raw_C);
+        double parallel_tape_time = parallel_tape_sharing_calculate(A, B, parallel_tape_C);
+        double parallel_block_time = parallel_block_calculate(A, B, parallel_block_C);
 
 //    print_matrix(serial_C);
 //    print_matrix(parallel_raw_C);
 //    print_matrix(parallel_tape_C);
 //    print_matrix(parallel_block_C);
-    cout << "Serial results: " << serial_time << endl;
-    cout << "Parallel raw results: " << parallel_raw_time << endl;
-    cout << "Parallel tape results: " << parallel_tape_time << endl;
-    cout << "Parallel block results: " << parallel_block_time << endl;
+        cout << "Serial results: " << serial_time << endl;
+        cout << "Parallel raw results: " << parallel_raw_time << endl;
+        cout << "Parallel tape results: " << parallel_tape_time << endl;
+        cout << "Parallel block results: " << parallel_block_time << endl;
+        cout << "===================" << endl;
+    }
 }
