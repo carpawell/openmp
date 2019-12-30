@@ -7,10 +7,6 @@
 
 using namespace std;
 
-int max(int a, int b) {
-    return a > b ? (a) : (b);
-}
-
 class FoundFiles {
 public:
     char* name;
@@ -32,6 +28,11 @@ int get_count(char *entered_path) {
     }
     return count;
 }
+
+int max(int a, int b) {
+    return a > b ? (a) : (b);
+}
+
 
 void check(char* pattern, int* T) {
     int pos;
