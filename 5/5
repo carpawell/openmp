@@ -1,0 +1,151 @@
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <dirent.h>
+#include <iostream>
+
+
+using namespace std;
+
+int max(int a, int b) {
+    return a > b ? (a) : (b);
+}
+
+class FoundFiles {
+public:
+    char* name;
+    int* list;
+    int used;
+    int size;
+};
+
+int get_count(char *entered_path) {
+    struct dirent* file;
+    DIR* path;
+    int count = 0;
+    if((path = opendir(entered_path))) {
+        while((file = readdir(path)))
+        {
+            char lastCharacter = file->d_name[strlen(file->d_name) - 1];
+            if(lastCharacter != '~' && file->d_type == DT_REG) count++;
+        }
+    }
+    return count;
+}
+
+void check(char* pattern, int* T) {
+    int pos;
+    int t;
+    int len = strlen(pattern);
+
+    T[0] = 0;
+    T[1] = 0;
+    t = 0;
+
+    for (pos = 2; pos <= len; pos++)
+    {
+        while ((t > 0) && (pattern[t] != pattern[pos - 1]))
+        {
+            t = T[t];
+        }
+        if (pattern[t] == pattern[pos - 1])
+        {
+            t++;
+        }
+        T[pos]=t;
+    }
+}
+
+void init(FoundFiles* a, size_t size) {
+    a->list = (int *)malloc(size * sizeof(int));
+    a->used = 0;
+    a->size = size;
+}
+
+void match(FoundFiles* a, int element) {
+    if (a->used == a->size) {
+        a->size *= 2;
+        a->list = (int *)realloc(a->list, a->size * sizeof(int));
+    }
+    a->list[a->used++] = element;
+}
+
+FoundFiles *make_path(char *entered_path, int length) {
+    struct dirent * file;
+    DIR * path;
+    char user_path[1000];
+    int i = 0;
+    FoundFiles* result = static_cast<FoundFiles *>(malloc(length * sizeof *result));
+
+
+    if(result && (path = opendir(entered_path))) {
+        while((file = readdir(path))) {
+            char lastCharacter = file->d_name[strlen(file->d_name)-1];
+            if(lastCharacter != '~' && file->d_type == DT_REG) {
+                strcpy(user_path, entered_path);
+                strcat(user_path, file->d_name);
+                result[i].name = strdup(user_path);
+                i++;
+            }
+        }
+        closedir(path);
+        return result;
+    }
+    else return NULL;
+}
+
+void knuth_morris_pratt(int* T, char* search_template, char *string_for_search, FoundFiles *files_match) {
+    int pos = 1;
+    int matches = 0;
+    unsigned int len_of_target = strlen(string_for_search);
+    int len_of_pattern = strlen(search_template);
+    init(files_match, 1);
+
+    for(pos = 1; pos <= len_of_target - len_of_pattern + 1; pos = pos + max(1, matches - T[matches])) {
+        matches = T[matches];
+        while((matches < len_of_pattern) && (search_template[matches] == string_for_search[pos + matches - 1])) {
+            matches++;
+        }
+        if (matches == len_of_pattern)
+            match(files_match, pos);
+    }
+}
+
+int main() {
+    FoundFiles* file_matchings;
+
+    char string_to_find[100];
+    char entered_path[1000];
+    int found_files = 0;
+    int T[100];
+
+    cout << "Path with .txt files:" << endl;
+    cin >> entered_path;
+    cout << "Enter template to search: " << endl;
+    cin >> string_to_find;
+
+    check(string_to_find, T);
+    found_files = get_count(entered_path);
+    file_matchings = make_path(entered_path, found_files);
+
+    #pragma omp parallel for default(none) shared(found_files, file_matchings, T, string_to_find)
+    for(int i = 0 ; i < found_files ; ++i) {
+        FILE *f = fopen(file_matchings[i].name, "rb");
+        fseek(f, 0, SEEK_END);
+        long fsize = ftell(f);
+        fseek(f, 0, SEEK_SET);
+        char *file_string = static_cast<char *>(malloc(fsize + 1));
+        fread(file_string, fsize, 1, f);
+        knuth_morris_pratt(T, string_to_find, file_string, &file_matchings[i]);
+        fclose(f);
+        file_string[fsize] = 0;
+        free(file_string);
+    }
+    cout << "Search results:" << endl;
+    int result = 0;
+    for(int i = 0; i < found_files; ++i) {
+        result += file_matchings[i].used;
+    }
+    cout << "Numbers of occurrences:" << result;
+    return 0;
+}
